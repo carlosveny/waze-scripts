@@ -43,7 +43,7 @@
   // ----------------------------------------------------
   // TRANSLATIONS
   // ----------------------------------------------------
-  const AVAILABLE_LANGUAGES = ['en', 'es', 'ca', 'gl', 'eu', 'pt-PT'];
+  const AVAILABLE_LANGUAGES = ['en', 'es', 'ca', 'gl', 'eu', 'pt-BR'];
   const LANG = AVAILABLE_LANGUAGES.includes(I18n.locale) ? I18n.locale : 'en';
   const LITERALS = {
     'CONFIG.ACTIVATE': {
@@ -52,7 +52,7 @@
       ca: 'Mostrar avisos de velocitat reduïda',
       gl: 'Mostrar avisos de velocidade reducida',
       eu: 'Erakutsi abiadura murriztuko abisuak',
-      'pt-PT': 'Mostrar alertas de reduções do limite de velocidade',
+      'pt-BR': 'Mostrar alertas de reduções do limite de velocidade',
     },
     'CONFIG.MIN_ZOOM': {
       en: 'Min Zoom',
@@ -60,7 +60,7 @@
       ca: 'Zoom mínim',
       gl: 'Zoom mínimo',
       eu: 'Gutxieneko zooma',
-      'pt-PT': 'Zoom mínimo',
+      'pt-BR': 'Zoom mínimo',
     },
   };
 
