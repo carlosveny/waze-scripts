@@ -6,7 +6,7 @@
 // @name:eu             WME Reduced Speed Checker
 // @name:pt-BR          WME Reduced Speed Checker
 // @namespace           https://greasyfork.org/es/scripts/528909-wme-reduced-speed-checker
-// @version             2.0.0
+// @version             2.1.0
 // @description         WME script to detect reduced speed warnings between segments
 // @description:es      Script de WME para detectar avisos de velocidad reducida entre segmentos
 // @description:ca      Script de WME per detectar avisos de velocitat reduïda entre segments
@@ -33,6 +33,9 @@ const ALLOWED_MAX_ZOOM = 22;
 const ALLOWED_MIN_ZOOM = 16;
 const MAX_SPEED_DIFF = 35;
 const NOT_ALLOWED_ROAD_TYPES = [4, 16, 5, 9];
+const ZOOM_INPUT_ID = 'RSCMinZoom';
+const LOCAL_STORAGE_KEY_ENABLED = 'RSCEnabled';
+const LOCAL_STORAGE_KEY_MIN_ZOOM = 'RSCMinZoom';
 let CONFIG_ENABLED = true;
 let CONFIG_MIN_ZOOM = ALLOWED_MIN_ZOOM;
 let SDK;
@@ -53,12 +56,12 @@ const LITERALS = {
     'pt-BR': 'Mostrar alertas de reduções do limite de velocidade',
   },
   'CONFIG.MIN_ZOOM': {
-    en: 'Min Zoom',
-    es: 'Zoom mínimo',
-    ca: 'Zoom mínim',
-    gl: 'Zoom mínimo',
-    eu: 'Gutxieneko zooma',
-    'pt-BR': 'Zoom mínimo',
+    en: 'Min Zoom:',
+    es: 'Zoom mínimo:',
+    ca: 'Zoom mínim:',
+    gl: 'Zoom mínimo:',
+    eu: 'Gutxieneko zooma:',
+    'pt-BR': 'Zoom mínimo:',
   },
 };
 
@@ -77,6 +80,7 @@ function init() {
   registerEvents();
   checkLocalStorage();
   createTab();
+  createCheckboxLayerSwitcher();
   checkReducedSpeeds();
 }
 
@@ -235,54 +239,32 @@ function getTabFooter() {
 
 function getTabContent() {
   const contentContainer = document.createElement('div');
-  contentContainer.appendChild(getCheckbox());
+  contentContainer.appendChild(getLabelInput());
   contentContainer.appendChild(getInput());
 
   return contentContainer;
 }
 
-function getCheckbox() {
-  const checkboxContainer = document.createElement('div');
-  checkboxContainer.style.display = 'flex';
-
-  const checkboxLabel = document.createElement('label');
-  checkboxLabel.innerHTML = LITERALS['CONFIG.ACTIVATE'][LANG];
-  checkboxLabel.setAttribute('for', 'RSCCheckbox');
-  checkboxLabel.style.fontWeight = '400';
-
-  const checkbox = document.createElement('input');
-  checkbox.type = 'checkbox';
-  checkbox.id = 'RSCCheckbox';
-  checkbox.style.marginRight = '0.5rem';
-  checkbox.style.height = 'fit-content';
-  checkbox.checked = CONFIG_ENABLED;
-
-  checkbox.addEventListener('change', function () {
-    localStorage.setItem('RSCEnabled', checkbox.checked);
-    CONFIG_ENABLED = checkbox.checked;
-    document.getElementById('RSCMinZoom').disabled = !CONFIG_ENABLED;
-    checkReducedSpeeds();
-  });
-
-  checkboxContainer.appendChild(checkbox);
-  checkboxContainer.appendChild(checkboxLabel);
-  return checkboxContainer;
-}
-
-function getInput() {
-  const inputContainer = document.createElement('div');
+function getLabelInput() {
+  const inputLabelContainer = document.createElement('div');
 
   const inputLabel = document.createElement('label');
   inputLabel.setAttribute('for', 'RSCInput');
   inputLabel.innerHTML = LITERALS['CONFIG.MIN_ZOOM'][LANG];
   inputLabel.style.fontWeight = '400';
 
+  inputLabelContainer.appendChild(inputLabel);
+  return inputLabelContainer;
+}
+
+function getInput() {
+  const inputContainer = document.createElement('div');
+
   const input = document.createElement('input');
   input.type = 'number';
-  input.id = 'RSCMinZoom';
+  input.id = ZOOM_INPUT_ID;
   input.min = ALLOWED_MIN_ZOOM;
   input.max = ALLOWED_MAX_ZOOM;
-  input.style.marginRight = '0.5rem';
   input.value = CONFIG_MIN_ZOOM;
   input.disabled = !CONFIG_ENABLED;
 
@@ -290,14 +272,13 @@ function getInput() {
     if (input.value < ALLOWED_MIN_ZOOM || input.value > ALLOWED_MAX_ZOOM) {
       input.value = CONFIG_MIN_ZOOM;
     } else {
-      localStorage.setItem('RSCMinZoom', input.value);
+      localStorage.setItem(LOCAL_STORAGE_KEY_MIN_ZOOM, input.value);
       CONFIG_MIN_ZOOM = input.value;
       checkReducedSpeeds();
     }
   });
 
   inputContainer.appendChild(input);
-  inputContainer.appendChild(inputLabel);
   return inputContainer;
 }
 
@@ -306,8 +287,10 @@ function getInput() {
 // ----------------------------------------------------
 
 function checkLocalStorage() {
-  CONFIG_ENABLED = localStorage.getItem('RSCEnabled') ? localStorage.getItem('RSCEnabled') === 'true' : CONFIG_ENABLED;
-  CONFIG_MIN_ZOOM = localStorage.getItem('RSCMinZoom') ?? CONFIG_MIN_ZOOM;
+  CONFIG_ENABLED = localStorage.getItem(LOCAL_STORAGE_KEY_ENABLED)
+    ? localStorage.getItem(LOCAL_STORAGE_KEY_ENABLED) === 'true'
+    : CONFIG_ENABLED;
+  CONFIG_MIN_ZOOM = localStorage.getItem(LOCAL_STORAGE_KEY_MIN_ZOOM) ?? CONFIG_MIN_ZOOM;
 }
 
 // ----------------------------------------------------
@@ -328,5 +311,18 @@ function registerEvents() {
       eventName,
       eventHandler: () => setTimeout(checkReducedSpeeds, 500),
     });
+  });
+}
+
+function createCheckboxLayerSwitcher() {
+  SDK.LayerSwitcher.addLayerCheckbox({ isChecked: CONFIG_ENABLED, name: 'Reduced Speed Checker' });
+  SDK.Events.on({
+    eventName: 'wme-layer-checkbox-toggled',
+    eventHandler: ({ _, checked }) => {
+      localStorage.setItem(LOCAL_STORAGE_KEY_ENABLED, checked);
+      CONFIG_ENABLED = checked;
+      document.getElementById(ZOOM_INPUT_ID).disabled = !CONFIG_ENABLED;
+      checkReducedSpeeds();
+    },
   });
 }
