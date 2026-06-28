@@ -6,7 +6,7 @@
 // @name:eu             WME Reduced Speed Checker
 // @name:pt-BR          WME Reduced Speed Checker
 // @namespace           https://greasyfork.org/es/scripts/528909-wme-reduced-speed-checker
-// @version             2.1.0
+// @version             2.1.1
 // @description         WME script to detect reduced speed warnings between segments
 // @description:es      Script de WME para detectar avisos de velocidad reducida entre segmentos
 // @description:ca      Script de WME per detectar avisos de velocitat reduïda entre segments
@@ -217,19 +217,19 @@ async function createTab() {
 }
 
 function getTabHeader() {
-  let header = document.createElement('div');
+  const header = document.createElement('div');
   header.innerHTML = `
-          <h6 style="margin: 0">WME Reduced Speed Checker</h6>
-          <p>v${GM_info.script.version}</p>
-        `;
+    <h6 style="margin: 0">WME Reduced Speed Checker</h6>
+    <p>v${GM_info.script.version}</p>
+  `;
   return header;
 }
 
 function getTabFooter() {
-  let footer = document.createElement('div');
+  const footer = document.createElement('div');
   footer.innerHTML = `
     <hr style="margin-bottom: 0.5rem">
-    <div style="font-size: 0.8rem; display: flex; gap: 1rem">
+    <div style="font-size: 0.8rem; display: flex; gap: 1rem; margin-bottom: 1rem">
       <a href="https://carlosveny.com" target="_blank">carlosveny.com</a>
       <a href="https://www.waze.com/user/editor/carlosveny" target="_blank">WME carlosveny</a>
     </div>
