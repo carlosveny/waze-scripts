@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          WME Gas Stations Checker
 // @namespace     https://greasyfork.org/es/scripts/536410-wme-gas-stations-checker
-// @version       2.0.0
+// @version       2.0.1
 // @description   Script para detectar posibles gasolineras que no actualizan automáticamente sus precios
 // @author        carlosveny
 // @match         https://beta.waze.com/*editor*
@@ -160,10 +160,6 @@ function createFeaturesLayer() {
         },
       },
     ],
-  });
-  SDK.Map.setLayerZIndex({
-    layerName: LAYER_NAME,
-    zIndex: 9999,
   });
 }
 
