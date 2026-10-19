@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          WME Gas Stations Checker
 // @namespace     https://greasyfork.org/es/scripts/536410-wme-gas-stations-checker
-// @version       2.0.1
+// @version       2.1.0
 // @description   Script para detectar posibles gasolineras que no actualizan automáticamente sus precios
 // @author        carlosveny
 // @match         https://beta.waze.com/*editor*
@@ -37,7 +37,7 @@ unsafeWindow.SDK_INITIALIZED.then(bootstrap);
 // ----------------------------------------------------
 
 function bootstrap() {
-  SDK = getWmeSdk({ scriptId: 'wme-gas-stations-checker', scriptName: 'WME Gas Stations Checker' });
+  SDK = getWmeSdk({ scriptId: 'wme-gas-stations-checker', scriptName: 'WME Gas Stations Checker', mode: 'async' });
   SDK.Events.once({ eventName: 'wme-ready' }).then(checkWazeReady);
 }
 
@@ -50,8 +50,8 @@ async function init() {
   discoverGasStations();
 }
 
-function discoverGasStations() {
-  const venues = SDK.DataModel.Venues.getAll();
+async function discoverGasStations() {
+  const venues = await SDK.DataModel.Venues.getAll();
   GAS_STATIONS = venues?.filter(venue => venue.categories?.includes('GAS_STATION'));
   const totalGasStations = GAS_STATIONS?.length ?? 0;
   document.getElementById(ID_TOTAL).innerText =
@@ -60,13 +60,13 @@ function discoverGasStations() {
   document.getElementById(ID_ANALIZE).disabled = totalGasStations === 0;
 }
 
-function analizeGasStations() {
+async function analizeGasStations() {
   SDK.Map.removeAllFeaturesFromLayer({ layerName: LAYER_NAME });
   triggerSpinner(true);
   document.getElementById(ID_TABLE_CONTAINER).innerHTML = '';
   INVALID_GAS_STATIONS = false;
   REQUESTS_COMPLETED = 0;
-  const coordinates = SDK.Map.getMapCenter();
+  const coordinates = await SDK.Map.getMapCenter();
   GAS_STATIONS?.forEach(gasStation => {
     makeRequest(coordinates.lat, coordinates.lon, gasStation);
   });
@@ -344,11 +344,7 @@ function loadCSS() {
 // ----------------------------------------------------
 
 function checkWazeReady() {
-  if (SDK.DataModel.Countries.getTopCountry()) {
-    init();
-  } else {
-    setTimeout(checkWazeReady, 2000);
-  }
+  SDK.DataModel.Countries.getTopCountry().then(init);
 }
 
 function registerEvents() {

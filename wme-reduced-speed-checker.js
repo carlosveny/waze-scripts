@@ -6,7 +6,7 @@
 // @name:eu             WME Reduced Speed Checker
 // @name:pt-BR          WME Reduced Speed Checker
 // @namespace           https://greasyfork.org/es/scripts/528909-wme-reduced-speed-checker
-// @version             2.1.1
+// @version             2.2.0
 // @description         WME script to detect reduced speed warnings between segments
 // @description:es      Script de WME para detectar avisos de velocidad reducida entre segmentos
 // @description:ca      Script de WME per detectar avisos de velocitat reduïda entre segments
@@ -70,28 +70,28 @@ const LITERALS = {
 // ----------------------------------------------------
 
 function bootstrap() {
-  SDK = getWmeSdk({ scriptId: 'wme-reduced-speed-checker', scriptName: 'WME Reduced Speed Checker' });
+  SDK = getWmeSdk({ scriptId: 'wme-reduced-speed-checker', scriptName: 'WME Reduced Speed Checker', mode: 'async' });
   SDK.Events.once({ eventName: 'wme-ready' }).then(checkWazeReady);
 }
 
-function init() {
+async function init() {
   console.log(`WME Reduced Speed Checker: Initialized v${GM_info.script.version}`);
   createFeaturesLayer();
   registerEvents();
   checkLocalStorage();
-  createTab();
+  await createTab();
   createCheckboxLayerSwitcher();
   checkReducedSpeeds();
 }
 
-function checkReducedSpeeds() {
+async function checkReducedSpeeds() {
   SDK.Map.removeAllFeaturesFromLayer({ layerName: LAYER_NAME });
-  if (CONFIG_ENABLED && SDK.Map.getZoomLevel() >= CONFIG_MIN_ZOOM) {
-    const nodes = SDK.DataModel.Nodes.getAll();
+  if (CONFIG_ENABLED && (await SDK.Map.getZoomLevel()) >= CONFIG_MIN_ZOOM) {
+    const nodes = await SDK.DataModel.Nodes.getAll();
     const junctions = nodes?.length ? nodes?.filter(node => node?.connectedSegmentIds?.length > 1) : [];
-    junctions.forEach(junction => {
+    junctions.forEach(async junction => {
       const segments = junction.connectedSegmentIds;
-      const minSpeed = getMinSpeedIfReducedSpeedAllSegments(segments, junction.id);
+      const minSpeed = await getMinSpeedIfReducedSpeedAllSegments(segments, junction.id);
       if (minSpeed) {
         drawSpeedSign(junction, minSpeed);
       }
@@ -99,13 +99,13 @@ function checkReducedSpeeds() {
   }
 }
 
-function getMinSpeedIfReducedSpeedAllSegments(segments, junctionId) {
+async function getMinSpeedIfReducedSpeedAllSegments(segments, junctionId) {
   let minSpeed;
   for (let i = 0; i < segments.length; i++) {
     for (let j = 0; j < segments.length; j++) {
       if (i !== j) {
-        const seg1 = SDK.DataModel.Segments.getById({ segmentId: segments[i] });
-        const seg2 = SDK.DataModel.Segments.getById({ segmentId: segments[j] });
+        const seg1 = await SDK.DataModel.Segments.getById({ segmentId: segments[i] });
+        const seg2 = await SDK.DataModel.Segments.getById({ segmentId: segments[j] });
         if (
           seg1 &&
           seg2 &&
@@ -132,14 +132,14 @@ function getMinSpeedIfReducedSpeed(seg1, seg2, junctionId) {
   return speedDiff >= MAX_SPEED_DIFF ? speed2 : null;
 }
 
-function isNavigable(seg1, seg2, junctionId) {
+async function isNavigable(seg1, seg2, junctionId) {
   return (
-    SDK.DataModel.Turns.isTurnAllowed({ fromSegmentId: seg1.id, nodeId: junctionId, toSegmentId: seg2.id }) &&
-    SDK.DataModel.Turns.isTurnAllowedBySegmentDirections({
+    (await SDK.DataModel.Turns.isTurnAllowed({ fromSegmentId: seg1.id, nodeId: junctionId, toSegmentId: seg2.id })) &&
+    (await SDK.DataModel.Turns.isTurnAllowedBySegmentDirections({
       fromSegmentId: seg1.id,
       nodeId: junctionId,
       toSegmentId: seg2.id,
-    })
+    }))
   );
 }
 
@@ -298,11 +298,7 @@ function checkLocalStorage() {
 // ----------------------------------------------------
 
 function checkWazeReady() {
-  if (SDK.DataModel.Countries.getTopCountry()) {
-    init();
-  } else {
-    setTimeout(checkWazeReady, 2000);
-  }
+  SDK.DataModel.Countries.getTopCountry().then(init);
 }
 
 function registerEvents() {
