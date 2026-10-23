@@ -109,7 +109,7 @@ async function getMinSpeedIfReducedSpeedAllSegments(segments, junctionId) {
         if (
           seg1 &&
           seg2 &&
-          isNavigable(seg1, seg2, junctionId) &&
+          (await isNavigable(seg1, seg2, junctionId)) &&
           isSameRoadType(seg1, seg2) &&
           isAllowedRoadType(seg1)
         ) {
