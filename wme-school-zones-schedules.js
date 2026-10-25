@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          WME School Zones Schedules
 // @namespace     https://greasyfork.org/es/scripts/601948-wme-school-zones-schedules
-// @version       1.0.1
+// @version       1.0.2
 // @description   Script para visualizar zonas escolares y sus horarios asignados
 // @author        carlosveny
 // @match         https://beta.waze.com/*editor*
@@ -28,8 +28,10 @@ const ID_CHECKBOX_GROUP = 'wme_school_zones_schedules_checkbox_group';
 const ID_TABLES_CONTAINER = 'wme_school_zones_schedules_table_container';
 const CLASS_TABLE = 'wme_school_zones_schedules_table';
 let SCHOOL_ZONES = null;
-let SCHOOL_ZONES_ANALIZED = false;
 let GROUP_BY_SCHEDULE = false;
+let REQUESTS_COMPLETED = 0;
+let TOTAL_REQUESTS = 0;
+let SCHEDULES_RESPONSE = null;
 let SDK;
 unsafeWindow.SDK_INITIALIZED.then(bootstrap);
 
@@ -51,34 +53,49 @@ async function init() {
 }
 
 async function discoverSchoolZones() {
-  const permanentHazards = await SDK.DataModel.PermanentHazards.getAll();
-  console.log(permanentHazards);
-  SCHOOL_ZONES = permanentHazards?.filter(ph => ph.type === 'SCHOOL_ZONE');
-  const totalSZ = SCHOOL_ZONES?.length ?? 0;
-  document.getElementById(ID_TOTAL).innerHTML =
-    `<b>${totalSZ}</b> zona${totalSZ === 1 ? '' : 's'} escolar${totalSZ === 1 ? '' : 'es'} encontrada${totalSZ === 1 ? '' : 's'}`;
-  document.getElementById(ID_TOTAL).style.color = 'orange';
-  document.getElementById(ID_ANALIZE).disabled = totalSZ === 0;
-  createSchoolZonesTableContent();
+  if (REQUESTS_COMPLETED === TOTAL_REQUESTS) {
+    const permanentHazards = await SDK.DataModel.PermanentHazards.getAll();
+    SCHOOL_ZONES = permanentHazards?.filter(ph => ph.type === 'SCHOOL_ZONE');
+    const totalSZ = SCHOOL_ZONES?.length ?? 0;
+    document.getElementById(ID_TOTAL).innerHTML =
+      `<b>${totalSZ}</b> zona${totalSZ === 1 ? '' : 's'} escolar${totalSZ === 1 ? '' : 'es'} encontrada${totalSZ === 1 ? '' : 's'}`;
+    document.getElementById(ID_TOTAL).style.color = 'orange';
+    document.getElementById(ID_ANALIZE).disabled = totalSZ === 0;
+    createSchoolZonesTableContent();
+  }
 }
 
 function analizeSchoolZones() {
   triggerSpinner(true);
-  const scheduleIds = SCHOOL_ZONES.map(schoolZone => schoolZone.scheduleId).join(',');
+  const pageSize = 30;
+  const schoolZonesPaginated = Array.from({ length: Math.ceil(SCHOOL_ZONES.length / pageSize) }, (_, i) =>
+    SCHOOL_ZONES.slice(i * pageSize, (i + 1) * pageSize),
+  );
+  REQUESTS_COMPLETED = 0;
+  TOTAL_REQUESTS = schoolZonesPaginated.length;
+  SCHEDULES_RESPONSE = [];
+  schoolZonesPaginated.forEach(schoolZones => makeRequest(schoolZones));
+}
+
+function makeRequest(schoolZones) {
+  const scheduleIds = schoolZones.map(schoolZone => schoolZone.scheduleId).join(',');
   GM_xmlhttpRequest({
     url: `https://www.waze.com/row-Descartes/app/v1/Features/Schedules?ids=${scheduleIds}&expand=true`,
     method: 'GET',
     onload: function (response) {
       const schedules = JSON.parse(response.responseText)?.schedules?.objects;
-      SCHOOL_ZONES = getSchoolZonesWithScheduleNames(schedules);
-      createSchoolZonesTableContent(true);
+      SCHEDULES_RESPONSE = [...SCHEDULES_RESPONSE, ...schedules];
+      REQUESTS_COMPLETED++;
+      if (REQUESTS_COMPLETED === TOTAL_REQUESTS) {
+        SCHOOL_ZONES = getSchoolZonesWithScheduleNames(SCHEDULES_RESPONSE);
+        createSchoolZonesTableContent(true);
 
-      triggerSpinner(false);
-      document.getElementById(ID_TOTAL).style.color = 'green';
-      document.getElementById(ID_TOTAL).innerHTML = document
-        .getElementById(ID_TOTAL)
-        .innerHTML.replace('encontrada', 'analizada');
-      SCHOOL_ZONES_ANALIZED = true;
+        triggerSpinner(false);
+        document.getElementById(ID_TOTAL).style.color = 'green';
+        document.getElementById(ID_TOTAL).innerHTML = document
+          .getElementById(ID_TOTAL)
+          .innerHTML.replace('encontrada', 'analizada');
+      }
     },
   });
 }
@@ -196,15 +213,13 @@ function generateTables(withSchedules) {
   const tablesContainer = document.getElementById(ID_TABLES_CONTAINER);
   tablesContainer.innerHTML = '';
   if (GROUP_BY_SCHEDULE && withSchedules) {
-    console.log(SCHOOL_ZONES);
     const scheduleNames = [...new Set(SCHOOL_ZONES.map(schoolZone => schoolZone.scheduleName))];
     const schoolZonesGroupedBySchedule = scheduleNames.map(scheduleName =>
       SCHOOL_ZONES.filter(schoolZone => schoolZone.scheduleName === scheduleName),
     );
-    console.log(scheduleNames, schoolZonesGroupedBySchedule);
     schoolZonesGroupedBySchedule.forEach((schoolZones, idx) => {
       const accordionTitle = document.createElement('summary');
-      accordionTitle.textContent = scheduleNames[idx];
+      accordionTitle.textContent = scheduleNames[idx] || '[Sin horario]';
       const accordion = document.createElement('details');
       accordion.open = true;
       accordion.appendChild(accordionTitle);
@@ -232,7 +247,7 @@ function getTable(schoolZones, withSchedules) {
     const nameCell = document.createElement('td');
     nameCell.innerText = schoolZone.name;
     const scheduleCell = document.createElement('td');
-    scheduleCell.innerText = schoolZone.scheduleName;
+    scheduleCell.innerText = schoolZone.scheduleName || '';
     const actionsCell = document.createElement('td');
     const navigateButton = document.createElement('button');
     navigateButton.style.width = '100%';
