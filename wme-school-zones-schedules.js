@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          WME School Zones Schedules
 // @namespace     https://greasyfork.org/es/scripts/601948-wme-school-zones-schedules
-// @version       1.0.3
+// @version       1.1.0
 // @description   Script para visualizar zonas escolares y sus horarios asignados
 // @author        carlosveny
 // @match         https://beta.waze.com/*editor*
@@ -105,13 +105,14 @@ function makeRequest(schoolZones) {
 
 function getSchoolZonesWithScheduleNames(schedules) {
   return SCHOOL_ZONES.map(schoolZone => {
-    const generalScheduleId = schedules
-      .find(sch => sch.id === schoolZone.scheduleId)
-      ?.timeframes?.find(tf => tf.relationType === 'INCLUDE')?.reference?.scheduleId;
-    const generalScheduleName = schedules.find(sch => sch.id === generalScheduleId)?.name;
+    const schedulesMatched = schedules.find(sch => sch.id === schoolZone.scheduleId);
+    const generalScheduleIds = schedulesMatched?.timeframes
+      ?.filter(tf => tf.relationType === 'INCLUDE' || tf.relationType === 'EXCLUDE')
+      ?.map(sch => sch.reference?.scheduleId);
+    const scheduleNames = schedules.filter(sch => generalScheduleIds?.includes(sch.id))?.map(sch => sch.name);
     return {
       ...schoolZone,
-      scheduleName: generalScheduleName,
+      scheduleNames,
     };
   });
 }
@@ -216,10 +217,14 @@ function generateTables(withSchedules) {
   const tablesContainer = document.getElementById(ID_TABLES_CONTAINER);
   tablesContainer.innerHTML = '';
   if (GROUP_BY_SCHEDULE && withSchedules) {
-    const scheduleNames = [...new Set(SCHOOL_ZONES.map(schoolZone => schoolZone.scheduleName))];
-    const schoolZonesGroupedBySchedule = scheduleNames.map(scheduleName =>
-      SCHOOL_ZONES.filter(schoolZone => schoolZone.scheduleName === scheduleName),
-    );
+    const scheduleNames = [...new Set(SCHOOL_ZONES.map(schoolZone => schoolZone.scheduleNames).flat())];
+    const schoolZonesWithoutSchedule = SCHOOL_ZONES.filter(schoolZone => !schoolZone.scheduleNames.length);
+    const schoolZonesGroupedBySchedule = [
+      ...scheduleNames.map(scheduleName =>
+        SCHOOL_ZONES.filter(schoolZone => schoolZone.scheduleNames.includes(scheduleName)),
+      ),
+      ...(schoolZonesWithoutSchedule.length ? [schoolZonesWithoutSchedule] : []),
+    ];
     schoolZonesGroupedBySchedule.forEach((schoolZones, idx) => {
       const accordionTitle = document.createElement('summary');
       accordionTitle.textContent = scheduleNames[idx] || '[Sin horario]';
@@ -239,23 +244,28 @@ function getTable(schoolZones, withSchedules) {
   table.setAttribute('class', CLASS_TABLE);
   table.innerHTML = `
       <tr>
-        <th style="font-weight: 500">Nombre</th>
-        ${withSchedules ? '<th style="font-weight: 500">Horario</th>' : ''}
-        <th><i class="fa fa-mouse-pointer" style="display: flex; justify-content: center"></i></th>
+        <th>Nombre</th>
+        ${withSchedules ? '<th>Horarios</th>' : ''}
+        <th title="Límite de velocidad"><i class="fa fa-tachometer"></i></th>
+        <th><i class="fa fa-mouse-pointer"></i></th>
       </tr>
     `;
 
   schoolZones.forEach(schoolZone => {
     const row = document.createElement('tr');
     const nameCell = document.createElement('td');
+    nameCell.style.maxWidth = '20%';
     nameCell.innerText = schoolZone.name;
+    const speedCell = document.createElement('td');
+    speedCell.innerText = schoolZone.speedLimit;
+    speedCell.style.textAlign = 'center';
     const scheduleCell = document.createElement('td');
-    scheduleCell.innerText = schoolZone.scheduleName || '';
+    scheduleCell.innerHTML = schoolZone.scheduleNames?.join('<br>') || '';
     const actionsCell = document.createElement('td');
     const navigateButton = document.createElement('button');
     navigateButton.style.width = '100%';
     navigateButton.title = 'Seleccionar zona escolar';
-    navigateButton.innerHTML = '<i class="fa fa-eye"></i>';
+    navigateButton.innerHTML = '<i title="Seleccionar zona" class="fa fa-eye"></i>';
     navigateButton.onclick = () => openSchoolZone(schoolZone.id);
     actionsCell.appendChild(navigateButton);
 
@@ -263,6 +273,7 @@ function getTable(schoolZones, withSchedules) {
     if (withSchedules) {
       row.appendChild(scheduleCell);
     }
+    row.appendChild(speedCell);
     row.appendChild(actionsCell);
     table.appendChild(row);
   });
@@ -311,16 +322,30 @@ function loadCSS() {
     .${CLASS_TABLE} {
       border-collapse: collapse;
       width: 100%;
-      td, th {
+      th, td {
         border: 1px solid #dddddd;
         text-align: left;
         padding: 2px;
+      }
+      th {
+        font-weight: 500;
+      }
+      td {
+        font-size: 0.9rem;
+        line-height: 1.1rem;
       }
       button {
         border: 0;
         background-color: transparent;
         padding: 0;
         height: 100%;
+      }
+      br {
+        margin-bottom: 0.2rem;
+      }
+      .fa {
+        display: flex;
+        justify-content: center;
       }
     }
     #${ID_ANALIZE}:disabled {
@@ -382,7 +407,7 @@ function checkWazeReady() {
 function registerEvents() {
   SDK.Events.on({
     eventName: 'wme-map-move-end',
-    eventHandler: () => discoverSchoolZones(),
+    eventHandler: () => setTimeout(discoverSchoolZones, 500),
   });
 }
 
