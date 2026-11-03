@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          WME School Zones Schedules
 // @namespace     https://greasyfork.org/es/scripts/601948-wme-school-zones-schedules
-// @version       1.1.0
+// @version       1.1.1
 // @description   Script para visualizar zonas escolares y sus horarios asignados
 // @author        carlosveny
 // @match         https://beta.waze.com/*editor*
@@ -86,7 +86,7 @@ function makeRequest(schoolZones) {
     url: `https://www.waze.com/row-Descartes/app/v1/Features/Schedules?ids=${scheduleIds}&expand=true`,
     method: 'GET',
     onload: function (response) {
-      const schedules = JSON.parse(response.responseText)?.schedules?.objects;
+      const schedules = JSON.parse(response.responseText)?.schedules?.objects?.filter(sch => !!sch);
       SCHEDULES_RESPONSE = [...SCHEDULES_RESPONSE, ...schedules];
       REQUESTS_COMPLETED++;
       if (REQUESTS_COMPLETED === TOTAL_REQUESTS) {
@@ -104,12 +104,13 @@ function makeRequest(schoolZones) {
 }
 
 function getSchoolZonesWithScheduleNames(schedules) {
+  const uniqueSchedules = [...new Map(schedules.map(sch => [sch.id, sch])).values()];
   return SCHOOL_ZONES.map(schoolZone => {
-    const schedulesMatched = schedules.find(sch => sch.id === schoolZone.scheduleId);
+    const schedulesMatched = uniqueSchedules.find(sch => sch.id === schoolZone.scheduleId);
     const generalScheduleIds = schedulesMatched?.timeframes
       ?.filter(tf => tf.relationType === 'INCLUDE' || tf.relationType === 'EXCLUDE')
       ?.map(sch => sch.reference?.scheduleId);
-    const scheduleNames = schedules.filter(sch => generalScheduleIds?.includes(sch.id))?.map(sch => sch.name);
+    const scheduleNames = uniqueSchedules.filter(sch => generalScheduleIds?.includes(sch.id))?.map(sch => sch.name);
     return {
       ...schoolZone,
       scheduleNames,
