@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name          WME School Zones Schedules
 // @namespace     https://greasyfork.org/es/scripts/601948-wme-school-zones-schedules
-// @version       1.1.2
+// @version       1.1.3
 // @description   Script para visualizar zonas escolares y sus horarios asignados
 // @author        carlosveny
 // @match         https://beta.waze.com/*editor*
@@ -83,7 +83,7 @@ function makeRequest(schoolZones) {
     .filter(id => !!id)
     .join(',');
   GM_xmlhttpRequest({
-    url: `https://www.waze.com/row-Descartes/app/v1/Features/Schedules?ids=${scheduleIds}&expand=true`,
+    url: `${unsafeWindow.location.origin}/row-Descartes/app/v1/Features/Schedules?ids=${scheduleIds}&expand=true`,
     method: 'GET',
     onload: function (response) {
       const schedules = JSON.parse(response.responseText)?.schedules?.objects?.filter(sch => !!sch);
